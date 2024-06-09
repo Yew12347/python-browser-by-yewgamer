@@ -6,6 +6,8 @@ use these bash first
 
 https://www.python.org/
 
+# module bash
+
 ```
 pip install PyQtWebEngine
 
