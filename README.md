@@ -1,4 +1,4 @@
-# python-brownser-by-yewgamer
+# python-browser-by-yewgamer
 Pyton Brownser by me
 
 use these bash first
