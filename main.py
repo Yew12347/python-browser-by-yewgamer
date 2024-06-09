@@ -1,9 +1,13 @@
 import sys
 import os
 from qtpy.QtCore import QUrl, QSize, Qt
-from qtpy.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QLineEdit, QPushButton, QHBoxLayout, QAction, QMenu, QMessageBox
+from qtpy.QtWidgets import (
+    QApplication, QMainWindow, QVBoxLayout, QWidget, QLineEdit, QPushButton,
+    QHBoxLayout, QAction, QMenu, QMessageBox
+)
 from qtpy.QtGui import QIcon
 from qtpy.QtWebEngineWidgets import QWebEngineView, QWebEngineProfile
+
 
 class BrowserWindow(QMainWindow):
     def __init__(self):
@@ -11,7 +15,7 @@ class BrowserWindow(QMainWindow):
         self.setWindowTitle("Yewgamer Browser")
         self.setWindowIcon(QIcon('icon/icon.png'))  # Updated path
         self.setWindowFlags(Qt.Window)  # Allow the window to go fullscreen
-        
+
         # Create central widget and layout
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -34,19 +38,16 @@ class BrowserWindow(QMainWindow):
 
         # Reload button (now named "Reload")
         self.reload_button = QPushButton("Reload")
-        self.reload_button.setIcon(QIcon('icon/reload_icon.png'))  # Updated path
         self.reload_button.setIconSize(QSize(32, 32))
         nav_layout.addWidget(self.reload_button)
 
         # Home button
         self.home_button = QPushButton("Home")
-        self.home_button.setIcon(QIcon('icon/home_icon.png'))  # Icon for the home button
         self.home_button.setIconSize(QSize(32, 32))
         nav_layout.addWidget(self.home_button)
 
         # Bookmark button
         self.bookmark_button = QPushButton("Bookmark")
-        self.bookmark_button.setIcon(QIcon('icon/bookmark_icon.png'))  # Icon for the bookmark button
         self.bookmark_button.setIconSize(QSize(32, 32))
         nav_layout.addWidget(self.bookmark_button)
 
@@ -59,6 +60,13 @@ class BrowserWindow(QMainWindow):
         self.add_bookmark_action.triggered.connect(self.toggleBookmark)
         self.bookmark_menu.addAction(self.add_bookmark_action)
 
+        # Cookie settings
+        self.cookie_settings_menu = QMenu("Cookie Settings", self)
+        self.delete_cookie_action = QAction("Delete Cookies", self)
+        self.delete_cookie_action.triggered.connect(self.deleteCookies)
+        self.cookie_settings_menu.addAction(self.delete_cookie_action)
+        self.menuBar().addMenu(self.cookie_settings_menu)
+
         # Search bar layout
         search_layout = QHBoxLayout()
         layout.addLayout(search_layout)
@@ -68,7 +76,6 @@ class BrowserWindow(QMainWindow):
         search_layout.addWidget(self.url_input)
 
         self.go_button = QPushButton("Go")
-        self.go_button.setIcon(QIcon('icon/go_icon.png'))  # Updated path
         self.go_button.setIconSize(QSize(32, 32))
         search_layout.addWidget(self.go_button)
 
@@ -79,7 +86,7 @@ class BrowserWindow(QMainWindow):
         # Enable cookie storage
         profile = QWebEngineProfile.defaultProfile()
         profile.setPersistentCookiesPolicy(QWebEngineProfile.ForcePersistentCookies)
-        self.browser.page().profile().setPersistentCookiesPolicy(QWebEngineProfile.ForcePersistentCookies)
+        self.cookie_store = profile.cookieStore()
 
         # Set initial URL
         self.browser.load(QUrl("https://www.google.com"))
@@ -91,7 +98,8 @@ class BrowserWindow(QMainWindow):
         self.home_button.clicked.connect(self.goHome)
         self.go_button.clicked.connect(self.navigate)
         self.browser.urlChanged.connect(self.updateUrlBar)
-        
+        self.cookie_store.cookieAdded.connect(self.cookieAdded)
+
         # Apply styles
         self.setStyleSheet("""
             QMainWindow {
@@ -198,8 +206,8 @@ class BrowserWindow(QMainWindow):
 
     def closeEvent(self, event):
         reply = QMessageBox.question(self, 'Save Bookmarks?',
-                                     "Do you want to save your bookmarks before closing?", 
-                                     QMessageBox.Yes | QMessageBox.No, 
+                                     "Do you want to save your bookmarks before closing?",
+                                     QMessageBox.Yes | QMessageBox.No,
                                      QMessageBox.Yes)
 
         if reply == QMessageBox.Yes:
@@ -208,11 +216,23 @@ class BrowserWindow(QMainWindow):
         else:
             event.ignore()
 
+    def cookieAdded(self, cookie):
+        print("Cookie added:", cookie.name().data().decode(), cookie.value().data().decode())
+
+    def deleteCookies(self):
+        self.cookie_store.deleteAllCookies()
+
+    def printCookies(self, cookies):
+        for cookie in cookies:
+            print(f"Name: {cookie.name().data().decode()}, Value: {cookie.value().data().decode()}, Domain: {cookie.domain().data().decode()}")
+
+
 def main():
     app = QApplication(sys.argv)
     window = BrowserWindow()
     window.show()
     sys.exit(app.exec_())
+
 
 if __name__ == "__main__":
     main()
