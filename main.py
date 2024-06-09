@@ -60,13 +60,6 @@ class BrowserWindow(QMainWindow):
         self.add_bookmark_action.triggered.connect(self.toggleBookmark)
         self.bookmark_menu.addAction(self.add_bookmark_action)
 
-        # Cookie settings
-        self.cookie_settings_menu = QMenu("Cookie Settings", self)
-        self.delete_cookie_action = QAction("Delete Cookies", self)
-        self.delete_cookie_action.triggered.connect(self.deleteCookies)
-        self.cookie_settings_menu.addAction(self.delete_cookie_action)
-        self.menuBar().addMenu(self.cookie_settings_menu)
-
         # Search bar layout
         search_layout = QHBoxLayout()
         layout.addLayout(search_layout)
@@ -83,11 +76,6 @@ class BrowserWindow(QMainWindow):
         self.browser = QWebEngineView()
         layout.addWidget(self.browser)
 
-        # Enable cookie storage
-        profile = QWebEngineProfile.defaultProfile()
-        profile.setPersistentCookiesPolicy(QWebEngineProfile.ForcePersistentCookies)
-        self.cookie_store = profile.cookieStore()
-
         # Set initial URL
         self.browser.load(QUrl("https://www.google.com"))
 
@@ -98,7 +86,6 @@ class BrowserWindow(QMainWindow):
         self.home_button.clicked.connect(self.goHome)
         self.go_button.clicked.connect(self.navigate)
         self.browser.urlChanged.connect(self.updateUrlBar)
-        self.cookie_store.cookieAdded.connect(self.cookieAdded)
 
         # Apply styles
         self.setStyleSheet("""
@@ -215,16 +202,6 @@ class BrowserWindow(QMainWindow):
             event.accept()
         else:
             event.ignore()
-
-    def cookieAdded(self, cookie):
-        print("Cookie added:", cookie.name().data().decode(), cookie.value().data().decode())
-
-    def deleteCookies(self):
-        self.cookie_store.deleteAllCookies()
-
-    def printCookies(self, cookies):
-        for cookie in cookies:
-            print(f"Name: {cookie.name().data().decode()}, Value: {cookie.value().data().decode()}, Domain: {cookie.domain().data().decode()}")
 
 
 def main():
