@@ -2,6 +2,9 @@
 Pyton Brownser by me
 
 use these bash first
+# DownloadPython Here
+
+https://www.python.org/
 
 ```
 pip install PyQtWebEngine
