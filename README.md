@@ -4,7 +4,9 @@ Pyton Brownser by me
 use these bash first
 
 ```
-pip install qtpy pyqt5
+pip install PyQtWebEngine
+
+pip install qtpy
 ```
 
 to clone this project use this bash
