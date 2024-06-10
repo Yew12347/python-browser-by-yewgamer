@@ -14,7 +14,12 @@ pip install PyQtWebEngine
 pip install qtpy
 ```
 
-to clone this project use this bash
+# to clone this project use this bash
+
+install this first
+
+https://www.git-scm.com/downloads
+
 ```
 git clone https://github.com/Yew12347/python-brownser-by-yewgamer.git
 ```
