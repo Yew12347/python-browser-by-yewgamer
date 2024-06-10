@@ -1,9 +1,9 @@
 import sys
 import os
-from qtpy.QtCore import QUrl, QSize, Qt
+from qtpy.QtCore import QUrl, QSize, Qt, QTimer
 from qtpy.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QWidget, QLineEdit, QPushButton,
-    QHBoxLayout, QAction, QMenu, QMessageBox
+    QHBoxLayout, QAction, QMenu, QMessageBox, QProgressDialog, QInputDialog
 )
 from qtpy.QtGui import QIcon
 from qtpy.QtWebEngineWidgets import QWebEngineView, QWebEngineProfile
@@ -13,7 +13,7 @@ class BrowserWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Yewgamer Browser")
-        self.setWindowIcon(QIcon('icon/icon.png'))  # Updated path
+        self.setWindowIcon(QIcon('icon.ico'))  # Updated path
         self.setWindowFlags(Qt.Window)  # Allow the window to go fullscreen
 
         # Create central widget and layout
@@ -57,7 +57,7 @@ class BrowserWindow(QMainWindow):
 
         # Add Bookmark action
         self.add_bookmark_action = QAction("Add Bookmark", self)
-        self.add_bookmark_action.triggered.connect(self.toggleBookmark)
+        self.add_bookmark_action.triggered.connect(self.addBookmark)
         self.bookmark_menu.addAction(self.add_bookmark_action)
 
         # Search bar layout
@@ -86,6 +86,7 @@ class BrowserWindow(QMainWindow):
         self.home_button.clicked.connect(self.goHome)
         self.go_button.clicked.connect(self.navigate)
         self.browser.urlChanged.connect(self.updateUrlBar)
+        self.browser.page().profile().downloadRequested.connect(self.downloadRequested)
 
         # Apply styles
         self.setStyleSheet("""
@@ -114,35 +115,19 @@ class BrowserWindow(QMainWindow):
             }
         """)
 
-        # Bookmarks
-        self.bookmarks = []
-        self.loadBookmarks()
-
     def goHome(self):
         self.browser.load(QUrl("https://www.google.com"))
 
-    def toggleBookmark(self):
+    def addBookmark(self):
         current_url = self.browser.url().toString()
-        if current_url in self.bookmarks:
-            self.bookmarks.remove(current_url)
-            for action in self.bookmark_menu.actions():
-                if action.text() == current_url:
-                    self.bookmark_menu.removeAction(action)
-                    break
-        else:
-            self.bookmarks.append(current_url)
-            bookmark_action = QAction(current_url, self)
-            bookmark_action.triggered.connect(self.loadBookmark)
-            self.bookmark_menu.addAction(bookmark_action)
+        bookmark_name, ok = QInputDialog.getText(self, "Add Bookmark", "Bookmark Name:")
+        if ok and bookmark_name:
+            action = QAction(bookmark_name, self)
+            action.triggered.connect(lambda: self.loadBookmark(current_url))
+            self.bookmark_menu.addAction(action)
 
-        self.saveBookmarks()
-        self.updateBookmarkButton()
-
-    def loadBookmark(self):
-        action = self.sender()
-        if action:
-            url = action.text()
-            self.browser.load(QUrl(url))
+    def loadBookmark(self, url):
+        self.browser.load(QUrl(url))
 
     def navigate(self):
         input_text = self.url_input.text()
@@ -158,50 +143,38 @@ class BrowserWindow(QMainWindow):
     def updateUrlBar(self, url):
         self.url_input.setText(url.toString())
 
-    def saveBookmarks(self):
-        with open("bookmarks.txt", "w") as f:
-            for bookmark in self.bookmarks:
-                f.write(bookmark + "\n")
+    def downloadRequested(self, downloadItem):
+        # Get download information
+        suggested_filename = downloadItem.suggestedFileName()
+        download_path = os.path.join(os.path.expanduser('~'), 'Downloads', suggested_filename)
 
-    def loadBookmarks(self):
-        if os.path.exists("bookmarks.txt"):
-            with open("bookmarks.txt", "r") as f:
-                for line in f:
-                    self.bookmarks.append(line.strip())
+        # Create a progress dialog
+        progress_dialog = QProgressDialog("Downloading...", "Cancel", 0, 0, self)
+        progress_dialog.setWindowTitle("Downloading")
+        progress_dialog.setWindowModality(Qt.WindowModal)
+        progress_dialog.setAutoReset(False)
+        progress_dialog.setAutoClose(False)
 
-            # Populate bookmark menu
-            for bookmark in self.bookmarks:
-                bookmark_action = QAction(bookmark, self)
-                bookmark_action.triggered.connect(self.loadBookmark)
-                self.bookmark_menu.addAction(bookmark_action)
+        # Connect signals for progress dialog
+        downloadItem.downloadProgress.connect(progress_dialog.setValue)
+        downloadItem.finished.connect(progress_dialog.reset)
+        downloadItem.finished.connect(lambda: self.showDone(progress_dialog))  # Show "Done"
+        progress_dialog.canceled.connect(lambda: self.cancelDownload(downloadItem))  # Cancel download
 
-        # Check if the default home page is bookmarked
-        default_home_page = "https://www.google.com"  # Change this to your desired home page URL
-        if default_home_page in self.bookmarks:
-            self.add_bookmark_action.setText("Remove Bookmark")
-        else:
-            self.add_bookmark_action.setText("Add Bookmark")
+        # Start download
+        downloadItem.setPath(download_path)
+        downloadItem.accept()
 
-        self.updateBookmarkButton()
+        # Open progress dialog
+        progress_dialog.exec_()
 
-    def updateBookmarkButton(self):
-        current_url = self.browser.url().toString()
-        if current_url in self.bookmarks:
-            self.add_bookmark_action.setText("Remove Bookmark")
-        else:
-            self.add_bookmark_action.setText("Add Bookmark")
+    def showDone(self, progress_dialog):
+        # Show "Done" for 1 second before closing the progress dialog
+        progress_dialog.setLabelText("Done")
+        QTimer.singleShot(1000, progress_dialog.close)
 
-    def closeEvent(self, event):
-        reply = QMessageBox.question(self, 'Save Bookmarks?',
-                                     "Do you want to save your bookmarks before closing?",
-                                     QMessageBox.Yes | QMessageBox.No,
-                                     QMessageBox.Yes)
-
-        if reply == QMessageBox.Yes:
-            self.saveBookmarks()
-            event.accept()
-        else:
-            event.ignore()
+    def cancelDownload(self, downloadItem):
+        downloadItem.cancel()
 
 
 def main():
