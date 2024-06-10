@@ -1,7 +1,7 @@
+# Realease soon :D
+
 # python-browser-by-yewgamer
 Pyton Brownser by me
-
-# Realease soon :D
 
 use these bash first
 # DownloadPython Here
