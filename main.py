@@ -3,7 +3,7 @@ import os
 from qtpy.QtCore import QUrl, QSize, Qt, QTimer
 from qtpy.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QWidget, QLineEdit, QPushButton,
-    QHBoxLayout, QAction, QMenu, QMessageBox, QProgressDialog, QInputDialog
+    QHBoxLayout, QAction, QMenu, QMessageBox, QInputDialog
 )
 from qtpy.QtGui import QIcon
 from qtpy.QtWebEngineWidgets import QWebEngineView, QWebEngineProfile
@@ -79,14 +79,11 @@ class BrowserWindow(QMainWindow):
         # Set initial URL
         self.browser.load(QUrl("https://www.google.com"))
 
-        # Connect signals
-        self.back_button.clicked.connect(self.browser.back)
-        self.forward_button.clicked.connect(self.browser.forward)
-        self.reload_button.clicked.connect(self.browser.reload)  # Connect reload button
-        self.home_button.clicked.connect(self.goHome)
-        self.go_button.clicked.connect(self.navigate)
-        self.browser.urlChanged.connect(self.updateUrlBar)
-        self.browser.page().profile().downloadRequested.connect(self.downloadRequested)
+        # Connect signals after window is shown
+        self.showEvent = self.connect_after_show(self.showEvent, self.connect_signals)
+
+        # Track downloaded files
+        self.downloaded_files = {}
 
         # Apply styles
         self.setStyleSheet("""
@@ -143,38 +140,46 @@ class BrowserWindow(QMainWindow):
     def updateUrlBar(self, url):
         self.url_input.setText(url.toString())
 
+    def connect_signals(self):
+        self.back_button.clicked.connect(self.browser.back)
+        self.forward_button.clicked.connect(self.browser.forward)
+        self.reload_button.clicked.connect(self.browser.reload)  # Connect reload button
+        self.home_button.clicked.connect(self.goHome)
+        self.go_button.clicked.connect(self.navigate)
+        self.browser.urlChanged.connect(self.updateUrlBar)
+
+        # Connect downloadRequested signal
+        self.browser.page().profile().downloadRequested.connect(self.downloadRequested)
+
+    def connect_after_show(self, event, func):
+        def wrapper(*args, **kwargs):
+            res = event(*args, **kwargs)
+            QTimer.singleShot(0, func)
+            return res
+        return wrapper
+
     def downloadRequested(self, downloadItem):
         # Get download information
         suggested_filename = downloadItem.suggestedFileName()
         download_path = os.path.join(os.path.expanduser('~'), 'Downloads', suggested_filename)
 
-        # Create a progress dialog
-        progress_dialog = QProgressDialog("Downloading...", "Cancel", 0, 0, self)
-        progress_dialog.setWindowTitle("Downloading")
-        progress_dialog.setWindowModality(Qt.WindowModal)
-        progress_dialog.setAutoReset(False)
-        progress_dialog.setAutoClose(False)
-
-        # Connect signals for progress dialog
-        downloadItem.downloadProgress.connect(progress_dialog.setValue)
-        downloadItem.finished.connect(progress_dialog.reset)
-        downloadItem.finished.connect(lambda: self.showDone(progress_dialog))  # Show "Done"
-        progress_dialog.canceled.connect(lambda: self.cancelDownload(downloadItem))  # Cancel download
+        # Store original download path and the new path without ".download" extension
+        self.downloaded_files[suggested_filename] = download_path
 
         # Start download
         downloadItem.setPath(download_path)
         downloadItem.accept()
 
-        # Open progress dialog
-        progress_dialog.exec_()
-
-    def showDone(self, progress_dialog):
-        # Show "Done" for 1 second before closing the progress dialog
-        progress_dialog.setLabelText("Done")
-        QTimer.singleShot(1000, progress_dialog.close)
+        # Connect signal for finished download
+        downloadItem.finished.connect(lambda: self.showDownloadDialog(suggested_filename))
 
     def cancelDownload(self, downloadItem):
         downloadItem.cancel()
+
+    def showDownloadDialog(self, filename):
+        QMessageBox.information(self, "Download Complete", f"Downloaded file: {filename}")
+
+    # Remove closeEvent method to prevent downloaded files from being deleted when the browser is closed
 
 
 def main():
